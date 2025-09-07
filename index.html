@@ -37,58 +37,56 @@
       background-color: var(--btn-bg); color: var(--text-color);
     }
     button:hover { background-color: var(--btn-hover-bg); }
-    button.primary { background-color: var(--accent-btn-bg); color: #fff; }
-    .header { display: flex; justify-content: space-between; align-items: center; max-width: 1200px; margin: 0 auto 20px; }
+    button.primary { background-color: var(--accent-btn-bg, #339af0); color: #fff; }
+    .header-controls { position: fixed; top: 20px; right: 20px; display: flex; gap: 10px; z-index: 100;}
+    .header-controls button { padding: 8px 12px;}
     .item-list { list-style: none; padding: 0; }
-    
+    /* ✨ 아이템 레이아웃 수정 */
     .item { display: flex; gap: 10px; align-items: center; padding: 10px; border-radius: 8px; background-color: var(--bg-color); margin-bottom: 8px; }
+    .prompt-item { flex-direction: column; align-items: stretch; }
     .item .inputs { flex-grow: 1; display: grid; gap: 8px; }
     .prompt-item .inputs { grid-template-columns: 1fr; }
     .toggle-item .inputs { grid-template-columns: 1fr 1fr; }
     .divider-item .inputs { grid-template-columns: 1fr; }
-
     .item .actions { display: flex; gap: 5px; align-items: center; }
     .item .actions button { padding: 5px 8px; line-height: 1; font-size: 1.2rem; }
+    .item .top-actions { justify-content: space-between; width: 100%; margin-bottom: 10px; }
     .item input[type="text"], .item textarea {
       width: 100%; box-sizing: border-box; padding: 8px; font-size: 0.95rem;
       border: 1px solid var(--input-border); border-radius: 6px;
       background-color: var(--input-bg); color: inherit; font-family: inherit;
     }
-    .item textarea {
-        resize: vertical;
-        min-height: 80px;
-    }
+    .item textarea { resize: vertical; min-height: 80px; }
      @media (max-width: 768px) {
         .toggle-item .inputs { grid-template-columns: 1fr; }
-        .item { flex-direction: column; align-items: stretch; }
-        .item .actions { justify-content: flex-end; }
      }
   </style>
 </head>
 <body>
-  <header class="header">
-    <h1>✅ 토글 생성기</h1>
+  <div class="header-controls">
+    <button id="main-link" title="돌아가기">🍞️</button>
     <button id="toggleDarkBtn">🌗</button>
-  </header>
+  </div>
 
   <div class="main-container">
+    <h1 style="text-align: center;">✅ 토글 생성기</h1>
     <!-- ① 프롬프트 구조 생성 -->
     <section class="generator-section">
       <h3>① 프롬프트 구조 생성</h3>
       <ul id="prompt-list" class="item-list"></ul>
       <div class="controls">
-        <button onclick="pasteToPrompts(this)">📝 붙여넣기로 추가</button>
-        <button onclick="addPromptItem()" class="primary">+ 프롬프트 추가</button>
+        <button id="paste-prompt-btn">📝 붙여넣기로 추가</button>
+        <button id="add-prompt-btn" class="primary">+ 프롬프트 추가</button>
       </div>
        <div style="margin-top: 20px;">
         <label><h4>결과</h4></label>
         <div id="prompt-output" class="output-area"></div>
       </div>
        <div class="controls">
-         <button onclick="clearAllPrompts()">🧹 초기화</button>
-         <button onclick="loadPrompts()">📂 불러오기</button>
-         <button onclick="savePrompts()">💾 저장</button>
-         <button onclick="copyToClipboard('prompt-output', this)">📋 복사</button>
+         <button id="clear-prompts-btn">🧹 초기화</button>
+         <button id="load-prompts-btn">📂 불러오기</button>
+         <button id="save-prompts-btn">💾 저장</button>
+         <button id="copy-prompt-output-btn">📋 복사</button>
          <input type="file" id="promptFileInput" accept=".txt" style="display: none;">
       </div>
     </section>
@@ -98,293 +96,326 @@
       <h3>② 커스텀 토글 생성</h3>
       <ul id="toggle-list" class="item-list"></ul>
       <div class="controls">
-        <button onclick="addToggleItem('divider')">+ 구분선 추가</button>
-        <button onclick="addToggleItem('toggle')" class="primary">+ 토글 추가</button>
+        <button id="add-divider-btn">+ 구분선 추가</button>
+        <button id="add-toggle-btn" class="primary">+ 토글 추가</button>
       </div>
        <div style="margin-top: 20px;">
         <label><h4>③ 커스텀 토글 결과</h4></label>
         <div id="custom-toggle-output" class="output-area"></div>
       </div>
        <div class="controls">
-         <button onclick="clearAllToggles()">🧹 초기화</button>
-         <button onclick="loadCustomToggles()">📂 불러오기</button>
-         <button onclick="saveCustomToggles()">💾 저장</button>
-         <button onclick="copyToClipboard('custom-toggle-output', this)">📋 복사</button>
+         <button id="clear-toggles-btn">🧹 초기화</button>
+         <button id="load-toggles-btn">📂 불러오기</button>
+         <button id="save-toggles-btn">💾 저장</button>
+         <button id="copy-toggle-output-btn">📋 복사</button>
          <input type="file" id="toggleFileInput" accept=".txt" style="display: none;">
       </div>
     </section>
   </div>
 
 <script>
-// --- DOM Elements ---
-const promptList = document.getElementById('prompt-list');
-const promptOutput = document.getElementById('prompt-output');
-const promptFileInput = document.getElementById('promptFileInput');
-const toggleList = document.getElementById('toggle-list');
-const customToggleOutput = document.getElementById('custom-toggle-output');
-const toggleFileInput = document.getElementById('toggleFileInput');
+document.addEventListener('DOMContentLoaded', () => {
+    // --- Data ---
+    let promptItems = [];
+    let toggleItems = [];
 
-// --- Data ---
-let promptItems = [];
-let toggleItems = [];
-
-// --- Generic Functions ---
-function moveItem(list, index, direction) {
-    if (direction === 'up' && index > 0) {
-        [list[index], list[index - 1]] = [list[index - 1], list[index]];
-    } else if (direction === 'down' && index < list.length - 1) {
-        [list[index], list[index + 1]] = [list[index + 1], list[index]];
-    }
-}
-
-function showFeedback(btn, message, isSuccess) {
-    const originalText = btn.innerHTML;
-    btn.innerHTML = isSuccess ? `✅ ${message}` : `❌ ${message}`;
-    setTimeout(() => { btn.innerHTML = originalText; }, 1500);
-}
-
-function copyToClipboard(elementId, btn) {
-    const el = document.getElementById(elementId);
-    if (!el.textContent.trim()) return;
-    navigator.clipboard.writeText(el.textContent).then(() => {
-        showFeedback(btn, '복사 완료', true);
-    }).catch(() => {
-        showFeedback(btn, '복사 실패', false);
-    });
-}
-
-
-// --- #1. Prompt Structure Generator ---
-function renderPromptList() {
-    promptList.innerHTML = '';
-    promptItems.forEach((item, index) => {
-        const li = document.createElement('li');
-        li.className = 'item prompt-item';
-        li.innerHTML = `
-            <div class="inputs">
-                <input type="text" value="${item.name}" oninput="updatePromptItem(${index}, 'name', this.value)" placeholder="토글명 (영어)">
-                <textarea oninput="updatePromptItem(${index}, 'content', this.value)" placeholder="프롬프트 내용">${item.content}</textarea>
-            </div>
-            <div class="actions">
-                <button onclick="movePromptItem(${index}, 'up')">🔼</button>
-                <button onclick="movePromptItem(${index}, 'down')">🔽</button>
-                <button onclick="deletePromptItem(${index})">❌</button>
-            </div>
-        `;
-        promptList.appendChild(li);
-    });
-    updatePromptOutput();
-    localStorage.setItem('risu_prompt_items', JSON.stringify(promptItems));
-}
-
-function addPromptItem(name = '', content = '') {
-    promptItems.push({ name, content });
-    renderPromptList();
-}
-
-function deletePromptItem(index) {
-    promptItems.splice(index, 1);
-    renderPromptList();
-}
-
-function clearAllPrompts() {
-    if (confirm('모든 프롬프트 구조를 초기화하시겠습니까?')) {
-        promptItems = [];
-        renderPromptList();
-    }
-}
-
-function updatePromptItem(index, key, value) {
-    promptItems[index][key] = value;
-    updatePromptOutput();
-    localStorage.setItem('risu_prompt_items', JSON.stringify(promptItems));
-}
-
-function movePromptItem(index, direction) {
-    moveItem(promptItems, index, direction);
-    renderPromptList();
-}
-
-async function pasteToPrompts(btn) {
-    try {
-        const text = await navigator.clipboard.readText();
-        addPromptItem('', text);
-        showFeedback(btn, '추가 완료', true);
-    } catch (err) {
-        showFeedback(btn, '붙여넣기 실패', false);
-    }
-}
-
-function updatePromptOutput() {
-    const output = promptItems.map(item => {
-        const name = item.name.trim();
-        const content = item.content.trim();
-        return name ? `{{#if {{getglobalvar::toggle_${name}}}}}\n${content}\n{{/if}}` : '';
-    }).filter(Boolean).join('\n\n');
-    promptOutput.textContent = output;
-}
-
-// ✨ .txt 파일로 저장/불러오기 (줄바꿈 버그 수정)
-function savePrompts() {
-    const content = promptItems.map(p => {
-        // 내용에 포함된 개행 문자를 특수 문자열로 치환
-        const safeContent = p.content.replace(/\n/g, '_BR_');
-        return `${p.name}|||${safeContent}`;
-    }).join('\n');
-    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'prompts.txt'; // 파일명 수정
-    a.click();
-    URL.revokeObjectURL(a.href);
-}
-
-function loadPrompts() {
-    promptFileInput.click();
-}
-
-promptFileInput.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-        const lines = event.target.result.split('\n');
-        promptItems = lines.filter(l => l.trim()).map(line => {
-            const parts = line.split('|||');
-            // 특수 문자열을 다시 개행 문자로 복원
-            const content = (parts[1] || '').replace(/_BR_/g, '\n');
-            return { name: parts[0] || '', content: content };
-        });
-        renderPromptList();
+    // --- DOM Elements ---
+    const promptList = document.getElementById('prompt-list');
+    const toggleList = document.getElementById('toggle-list');
+    const promptOutput = document.getElementById('prompt-output');
+    const customToggleOutput = document.getElementById('custom-toggle-output');
+    const promptFileInput = document.getElementById('promptFileInput');
+    const toggleFileInput = document.getElementById('toggleFileInput');
+    const mainLinkBtn = document.getElementById('main-link');
+    const toggleDarkBtn = document.getElementById('toggleDarkBtn');
+    
+    // --- Generic Functions ---
+    const moveItem = (list, index, direction) => {
+        if (direction === 'up' && index > 0) {
+            [list[index], list[index - 1]] = [list[index - 1], list[index]];
+        } else if (direction === 'down' && index < list.length - 1) {
+            [list[index], list[index + 1]] = [list[index + 1], list[index]];
+        }
     };
-    reader.readAsText(file);
-    e.target.value = '';
-});
 
-
-// --- #2. Custom Toggle Generator ---
-function renderToggleList() {
-    toggleList.innerHTML = '';
-    toggleItems.forEach((item, index) => {
-        const li = document.createElement('li');
-        li.className = 'item';
-        let inputsHtml = '';
-        if (item.type === 'divider') {
-            li.classList.add('divider-item');
-            inputsHtml = `<input type="text" value="${item.name}" oninput="updateToggleItem(${index}, 'name', this.value)" placeholder="구분선명">`;
-        } else {
-            li.classList.add('toggle-item');
-            inputsHtml = `
-                <input type="text" value="${item.name}" oninput="updateToggleItem(${index}, 'name', this.value)" placeholder="토글명">
-                <input type="text" value="${item.label}" oninput="updateToggleItem(${index}, 'label', this.value)" placeholder="토글 표기">
+    const showFeedback = async (btn) => {
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '✅';
+        setTimeout(() => { btn.innerHTML = originalText; }, 1000);
+    };
+    
+    // --- #1. Prompt Structure Generator ---
+    const renderPromptList = () => {
+        promptList.innerHTML = '';
+        promptItems.forEach((item, index) => {
+            const li = document.createElement('li');
+            li.className = 'item prompt-item';
+            li.innerHTML = `
+                <div class="actions top-actions">
+                    <div style="display:flex; gap:5px;">
+                       <button data-action="translate-ko-en" data-index="${index}" title="한→영 번역">🇬🇧</button>
+                       <button data-action="translate-en-ko" data-index="${index}" title="영→한 번역">🇰🇷</button>
+                       <button data-action="spell-check" data-index="${index}" title="맞춤법 검사">🔍</button>
+                    </div>
+                    <div style="display:flex; gap:5px;">
+                        <button data-action="move-up" data-index="${index}">🔼</button>
+                        <button data-action="move-down" data-index="${index}">🔽</button>
+                        <button data-action="delete" data-index="${index}">❌</button>
+                    </div>
+                </div>
+                <div class="inputs">
+                    <input type="text" value="${item.name}" data-key="name" data-index="${index}" placeholder="토글명 (영어)">
+                    <textarea data-key="content" data-index="${index}" placeholder="프롬프트 내용">${item.content}</textarea>
+                </div>
             `;
-        }
-        li.innerHTML = `
-            <div class="inputs">${inputsHtml}</div>
-            <div class="actions">
-                <button onclick="moveToggleItem(${index}, 'up')">🔼</button>
-                <button onclick="moveToggleItem(${index}, 'down')">🔽</button>
-                <button onclick="deleteToggleItem(${index})">❌</button>
-            </div>
-        `;
-        toggleList.appendChild(li);
-    });
-    updateCustomToggleOutput();
-    localStorage.setItem('risu_toggle_items', JSON.stringify(toggleItems));
-}
-
-function addToggleItem(type) {
-    if (type === 'divider') {
-        toggleItems.push({ type: 'divider', name: '' });
-    } else {
-        toggleItems.push({ type: 'toggle', name: '', label: '' });
-    }
-    renderToggleList();
-}
-
-function deleteToggleItem(index) {
-    toggleItems.splice(index, 1);
-    renderToggleList();
-}
-
-function clearAllToggles() {
-    if (confirm('모든 커스텀 토글을 초기화하시겠습니까?')) {
-        toggleItems = [];
-        renderToggleList();
-    }
-}
-
-function updateToggleItem(index, key, value) {
-    toggleItems[index][key] = value;
-    updateCustomToggleOutput();
-    localStorage.setItem('risu_toggle_items', JSON.stringify(toggleItems));
-}
-
-function moveToggleItem(index, direction) {
-    moveItem(toggleItems, index, direction);
-    renderToggleList();
-}
-
-function updateCustomToggleOutput() {
-    const output = toggleItems.map(item => {
-        if (item.type === 'divider') {
-            return `=${item.name || ''}=divider`;
-        } else {
-            return `${item.name || ''}=${item.label || ''}`;
-        }
-    }).join('\n');
-    customToggleOutput.textContent = output;
-}
-
-function saveCustomToggles() {
-    const content = customToggleOutput.textContent;
-    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'custom_toggles.txt'; // 파일명 수정
-    a.click();
-    URL.revokeObjectURL(a.href);
-}
-
-function loadCustomToggles() {
-    toggleFileInput.click();
-}
-
-toggleFileInput.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-        const lines = event.target.result.split('\n');
-        toggleItems = lines.filter(l => l.trim()).map(line => {
-            if (line.startsWith('=') && line.endsWith('=divider')) {
-                return { type: 'divider', name: line.slice(1, -8) };
-            } else {
-                const parts = line.split('=');
-                return { type: 'toggle', name: parts[0] || '', label: parts.slice(1).join('=') || '' };
-            }
+            promptList.appendChild(li);
         });
+        updatePromptOutput();
+        localStorage.setItem('risu_prompt_items_v2', JSON.stringify(promptItems));
+    };
+
+    const addPromptItem = (name = '', content = '') => {
+        promptItems.push({ name, content });
+        renderPromptList();
+    };
+
+    const updatePromptOutput = () => {
+        const output = promptItems.map(item => {
+            const name = item.name.trim();
+            const content = item.content.trim();
+            return name ? `{{#if {{getglobalvar::toggle_${name}}}}}\n${content}\n{{/if}}` : '';
+        }).filter(Boolean).join('\n\n');
+        promptOutput.textContent = output;
+    };
+
+    const savePrompts = () => {
+        const content = promptItems.map(p => {
+            const safeContent = p.content.replace(/\n/g, '_BR_');
+            return `${p.name}|||${safeContent}`;
+        }).join('\n');
+        const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'prompts.txt';
+        a.click();
+        URL.revokeObjectURL(a.href);
+    };
+
+    // --- #2. Custom Toggle Generator ---
+    const renderToggleList = () => {
+        toggleList.innerHTML = '';
+        toggleItems.forEach((item, index) => {
+            const li = document.createElement('li');
+            li.className = 'item';
+            let inputsHtml = '';
+            if (item.type === 'divider') {
+                li.classList.add('divider-item');
+                inputsHtml = `<input type="text" value="${item.name}" data-key="name" data-index="${index}" placeholder="구분선명">`;
+            } else {
+                li.classList.add('toggle-item');
+                inputsHtml = `
+                    <input type="text" value="${item.name}" data-key="name" data-index="${index}" placeholder="토글명">
+                    <input type="text" value="${item.label}" data-key="label" data-index="${index}" placeholder="토글 표기">
+                `;
+            }
+            li.innerHTML = `
+                 <div class="inputs">${inputsHtml}</div>
+                 <div class="actions">
+                    <button data-action="move-up" data-index="${index}">🔼</button>
+                    <button data-action="move-down" data-index="${index}">🔽</button>
+                    <button data-action="delete" data-index="${index}">❌</button>
+                </div>
+            `;
+            toggleList.appendChild(li);
+        });
+        updateCustomToggleOutput();
+        localStorage.setItem('risu_toggle_items_v2', JSON.stringify(toggleItems));
+    };
+
+    const addToggleItem = (type) => {
+        if (type === 'divider') {
+            toggleItems.push({ type: 'divider', name: '' });
+        } else {
+            toggleItems.push({ type: 'toggle', name: '', label: '' });
+        }
         renderToggleList();
     };
-    reader.readAsText(file);
-    e.target.value = '';
-});
+    
+    const updateCustomToggleOutput = () => {
+        const output = toggleItems.map(item => {
+            if (item.type === 'divider') {
+                return `=${item.name || ''}=divider`;
+            } else {
+                return `${item.name || ''}=${item.label || ''}`;
+            }
+        }).join('\n');
+        customToggleOutput.textContent = output;
+    };
 
+    const saveCustomToggles = () => {
+        const content = customToggleOutput.textContent;
+        const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'custom_toggles.txt';
+        a.click();
+        URL.revokeObjectURL(a.href);
+    };
 
-// --- Initial Load ---
-document.getElementById('toggleDarkBtn').addEventListener('click', () => {
-    document.body.classList.toggle('dark');
-    localStorage.setItem('risu_darkmode', document.body.classList.contains('dark'));
-});
+    // --- Initial Load & Event Listeners ---
+    mainLinkBtn.addEventListener('click', () => {
+        window.location.href = "https://toastout.github.io/toast/";
+    });
+    
+    toggleDarkBtn.addEventListener('click', () => {
+        document.body.classList.toggle('dark');
+        localStorage.setItem('risu_darkmode_v2', document.body.classList.contains('dark'));
+    });
 
-window.onload = () => {
-    if (localStorage.getItem('risu_darkmode') === 'true') {
+    // Prompt controls
+    document.getElementById('add-prompt-btn').addEventListener('click', () => addPromptItem());
+    document.getElementById('paste-prompt-btn').addEventListener('click', async (e) => {
+        try {
+            const text = await navigator.clipboard.readText();
+            addPromptItem('', text);
+            showFeedback(e.target);
+        } catch (err) { alert('붙여넣기에 실패했습니다.'); }
+    });
+    document.getElementById('clear-prompts-btn').addEventListener('click', () => {
+        if (confirm('모든 프롬프트 구조를 초기화하시겠습니까?')) {
+            promptItems = [];
+            renderPromptList();
+        }
+    });
+    document.getElementById('load-prompts-btn').addEventListener('click', () => promptFileInput.click());
+    document.getElementById('save-prompts-btn').addEventListener('click', savePrompts);
+    document.getElementById('copy-prompt-output-btn').addEventListener('click', async (e) => {
+         if (!promptOutput.textContent.trim()) return;
+         await navigator.clipboard.writeText(promptOutput.textContent);
+         showFeedback(e.target);
+    });
+
+    // Toggle controls
+    document.getElementById('add-divider-btn').addEventListener('click', () => addToggleItem('divider'));
+    document.getElementById('add-toggle-btn').addEventListener('click', () => addToggleItem('toggle'));
+    document.getElementById('clear-toggles-btn').addEventListener('click', () => {
+        if (confirm('모든 커스텀 토글을 초기화하시겠습니까?')) {
+            toggleItems = [];
+            renderToggleList();
+        }
+    });
+    document.getElementById('load-toggles-btn').addEventListener('click', () => toggleFileInput.click());
+    document.getElementById('save-toggles-btn').addEventListener('click', saveCustomToggles);
+    document.getElementById('copy-toggle-output-btn').addEventListener('click', async (e) => {
+         if (!customToggleOutput.textContent.trim()) return;
+         await navigator.clipboard.writeText(customToggleOutput.textContent);
+         showFeedback(e.target);
+    });
+
+    // File inputs
+    promptFileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const lines = event.target.result.split('\n');
+            promptItems = lines.filter(l => l.trim()).map(line => {
+                const parts = line.split('|||');
+                const content = (parts[1] || '').replace(/_BR_/g, '\n');
+                return { name: parts[0] || '', content: content };
+            });
+            renderPromptList();
+        };
+        reader.readAsText(file);
+        e.target.value = '';
+    });
+    toggleFileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const lines = event.target.result.split('\n');
+            toggleItems = lines.filter(l => l.trim()).map(line => {
+                if (line.startsWith('=') && line.endsWith('=divider')) {
+                    return { type: 'divider', name: line.slice(1, -8) };
+                } else {
+                    const parts = line.split('=');
+                    return { type: 'toggle', name: parts[0] || '', label: parts.slice(1).join('=') || '' };
+                }
+            });
+            renderToggleList();
+        };
+        reader.readAsText(file);
+        e.target.value = '';
+    });
+
+    // Delegated event listeners for item lists
+    document.addEventListener('input', e => {
+        const target = e.target;
+        const index = parseInt(target.dataset.index);
+        const key = target.dataset.key;
+        if (target.closest('#prompt-list') && key) {
+            promptItems[index][key] = target.value;
+            updatePromptOutput();
+            localStorage.setItem('risu_prompt_items_v2', JSON.stringify(promptItems));
+        } else if (target.closest('#toggle-list') && key) {
+            toggleItems[index][key] = target.value;
+            updateCustomToggleOutput();
+            localStorage.setItem('risu_toggle_items_v2', JSON.stringify(toggleItems));
+        }
+    });
+    promptList.addEventListener('click', async e => {
+        const button = e.target.closest('button');
+        if (!button) return;
+        const action = button.dataset.action;
+        const index = parseInt(button.dataset.index);
+        if (action === 'delete') promptItems.splice(index, 1);
+        else if (action === 'move-up') moveItem(promptItems, index, 'up');
+        else if (action === 'move-down') moveItem(promptItems, index, 'down');
+        else if (action === 'translate-ko-en' || action === 'translate-en-ko') {
+            const text = promptItems[index].content;
+            if (!text) return;
+            const sl = action === 'translate-ko-en' ? 'ko' : 'en';
+            const tl = action === 'translate-ko-en' ? 'en' : 'ko';
+            window.open(`https://translate.google.com/?sl=${sl}&tl=${tl}&text=${encodeURIComponent(text)}&op=translate`, '_blank');
+        } else if (action === 'spell-check') {
+            const text = promptItems[index].content;
+            if (!text) return;
+            try {
+                // Using document.execCommand('copy') as a fallback for clipboard API in some environments
+                const tempInput = document.createElement('textarea');
+                tempInput.value = text;
+                document.body.appendChild(tempInput);
+                tempInput.select();
+                document.execCommand('copy');
+                document.body.removeChild(tempInput);
+                alert('내용이 복사되었습니다. 맞춤법 검사기 사이트에 붙여넣으세요.');
+                window.open('https://nara-speller.co.kr/speller', '_blank');
+            } catch(err) {
+                alert('복사에 실패했습니다.');
+            }
+        }
+        renderPromptList();
+    });
+    toggleList.addEventListener('click', e => {
+        const button = e.target.closest('button');
+        if (!button) return;
+        const action = button.dataset.action;
+        const index = parseInt(button.dataset.index);
+        if (action === 'delete') toggleItems.splice(index, 1);
+        else if (action === 'move-up') moveItem(toggleItems, index, 'up');
+        else if (action === 'move-down') moveItem(toggleItems, index, 'down');
+        renderToggleList();
+    });
+
+    // --- Initial Load ---
+    if (localStorage.getItem('risu_darkmode_v2') === 'true') {
         document.body.classList.add('dark');
     }
     
-    const savedPrompts = localStorage.getItem('risu_prompt_items');
+    const savedPrompts = localStorage.getItem('risu_prompt_items_v2');
     if (savedPrompts) {
-      promptItems = JSON.parse(savedPrompts);
+        try { promptItems = JSON.parse(savedPrompts); } catch(e) { promptItems = []; }
     }
     if (promptItems.length === 0) {
       addPromptItem('', '');
@@ -392,9 +423,9 @@ window.onload = () => {
       renderPromptList();
     }
     
-    const savedToggles = localStorage.getItem('risu_toggle_items');
+    const savedToggles = localStorage.getItem('risu_toggle_items_v2');
     if (savedToggles) {
-      toggleItems = JSON.parse(savedToggles);
+        try { toggleItems = JSON.parse(savedToggles); } catch(e) { toggleItems = []; }
     }
     if (toggleItems.length === 0) {
       addToggleItem('divider');
@@ -402,8 +433,7 @@ window.onload = () => {
     } else {
       renderToggleList();
     }
-};
-
+});
 </script>
 </body>
 </html>
